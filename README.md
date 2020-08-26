@@ -251,7 +251,11 @@ If we check our cluster we’ll see that there are currently no Persistent Volum
 ```
 [root@cluster-50-master]# kubectl get pv,pvc
 No resources found in default namespace.
+```
+
 Also, we can look in the directory we allocated for Persistent Volumes and see there nothing there.
+
+```
 [root@cluster-50-master]# ls /srv/nfs/kubedata/
 Let’s create a PVC. Inside the nfs-provisioning repo there is a file “4-pvc-nfs.yaml”. In this example, we will allocate 500 MegaBytes.
 apiVersion: v1
@@ -291,8 +295,11 @@ Now that we have our nfs-provisoner working and we have both a PVC and OV that i
 [root@cluster-50-master]# kubectl get pods
 NAME                                      READY   STATUS    RESTARTS   AGE
 nfs-client-provisioner-5b4f5775c7-9j2dw   1/1     Running   0          4h36m
+```
 Next, we’ll create a pod using the “4-busybox-pv-nfs.yaml” file. But first lets take a look at the files contents.
 apiVersion: v1
+
+```
 kind: Pod
 metadata:
   name: busybox
@@ -321,10 +328,10 @@ pod/busybox created
 We can now see that the pod is up and running.
 
 ```
-[vagrant@kmaster nfs-provisioning]$ kubectl get pods
+[root@cluster-50-master nfs-provisioning]# kubectl get pods
 NAME                                      READY   STATUS    RESTARTS   AGE
-busybox                                   1/1     Running   0          69s
-nfs-client-provisioner-5b4f5775c7-9j2dw   1/1     Running   0          7h33m
+busybox                                   1/1     Running   0          8s
+nfs-client-provisioner-67dfcbfd99-wc9zb   1/1     Running   0          111m
 ```
 
 We can describe the pod to see more details.
@@ -336,17 +343,23 @@ Namespace:    default
 Priority:     0
 Node:         kworker1.example.com/172.42.42.101
 Start Time:   Mon, 04 Nov 2019 03:44:30 +0000
+[root@cluster-50-master nfs-provisioning]# kubectl describe pod busybox
+Name:         busybox
+Namespace:    default
+Priority:     0
+Node:         192.168.50.14/192.168.50.14
+Start Time:   Wed, 26 Aug 2020 17:54:40 +0000
 Labels:       <none>
-Annotations:  cni.projectcalico.org/podIP: 192.168.33.194/32
+Annotations:  <none>
 Status:       Running
-IP:           192.168.33.194
+IP:           10.135.1.17
 IPs:
-  IP:  192.168.33.194
+  IP:  10.135.1.17
 Containers:
   busybox:
-    Container ID:  docker://f27b38404abbfd3ab77fe81b23e148e0a15f4779420ddfcb17eebcbe699767f3
+    Container ID:  docker://09ac40f8ac45ce8d65d3bffb0b0f382836f4d5dc46f3ac11a6d51607c4bdfd8f
     Image:         busybox
-    Image ID:      docker-pullable://busybox@sha256:1303dbf110c57f3edf68d9f5a16c082ec06c4cf7604831669faf2c712260b5a0
+    Image ID:      docker-pullable://busybox@sha256:4f47c01fa91355af2865ac10fef5bf6ec9c7f42ad2321377c21e844427972977
     Port:          <none>
     Host Port:     <none>
     Command:
@@ -355,13 +368,13 @@ Containers:
       -c
       sleep 600
     State:          Running
-      Started:      Mon, 04 Nov 2019 03:44:34 +0000
+      Started:      Wed, 26 Aug 2020 17:54:45 +0000
     Ready:          True
     Restart Count:  0
     Environment:    <none>
     Mounts:
       /mydata from host-volume (rw)
-      /var/run/secrets/kubernetes.io/serviceaccount from default-token-p2ctq (ro)
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-4rkd9 (ro)
 Conditions:
   Type              Status
   Initialized       True
@@ -373,32 +386,39 @@ Volumes:
     Type:       PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)
     ClaimName:  pvc1
     ReadOnly:   false
-  default-token-p2ctq:
+  default-token-4rkd9:
     Type:        Secret (a volume populated by a Secret)
-    SecretName:  default-token-p2ctq
+    SecretName:  default-token-4rkd9
     Optional:    false
 QoS Class:       BestEffort
 Node-Selectors:  <none>
 Tolerations:     node.kubernetes.io/not-ready:NoExecute for 300s
                  node.kubernetes.io/unreachable:NoExecute for 300s
+Events:
+  Type    Reason     Age        From                    Message
+  ----    ------     ----       ----                    -------
+  Normal  Scheduled  <unknown>  default-scheduler       Successfully assigned default/busybox to 192.168.50.14
+  Normal  Pulling    34s        kubelet, 192.168.50.14  Pulling image "busybox"
+  Normal  Pulled     33s        kubelet, 192.168.50.14  Successfully pulled image "busybox"
+  Normal  Created    31s        kubelet, 192.168.50.14  Created container busybox
+  Normal  Started    30s        kubelet, 192.168.50.14  Started container busybox
 ```
 
 We can log into the container to view the mount point and create a file for testing
 
 ```
-[vagrant@kmaster nfs-provisioning]$ kubectl exec -it busybox -- ./bin/sh
-/ # 
+[root@cluster-50-master nfs-provisioning]# kubectl exec -it busybox -- ./bin/sh
 / # ls /mydata/
-/ # > /mydata/myfile
+/ # > /mydata/pf9file
 / # ls /mydata/
-myfile
+pf9file
 ```
 
 Now that we’ve create a file called myfile, we can log into the mastrer node and verify the file by looking in the PV directory that was allocated for this pod.
 
 ```
-[vagrant@kmaster nfs-provisioning]$ ls /srv/nfs/kubedata/default-pvc1-pvc-eca295aa-bc2c-420c-b60e-9a6894fc9daf/
-myfile
+[root@cluster-50-master nfs-provisioning]# ls /srv/nfs/kubedata/default-pvc1-pvc-774d202f-2fa1-4820-8ccb-8b5bf58fa926/
+pf9file
 ```
 
 ### Step 7) Deleting Pods with Persistent Volume Claims
@@ -406,27 +426,26 @@ myfile
 To delete the pod just use “kubectl delete pod [pod name]”
 
 ```
-[vagrant@kmaster nfs-provisioning]$ kubectl delete pod busybox
+[root@cluster-50-master nfs-provisioning]# kubectl delete pod busybox
 pod "busybox" deleted
 ```
 
 Deleting the pod will delete the pod but not the PV and PVC. This will have to be done separately.
 
 ```
-[vagrant@kmaster nfs-provisioning]$ kubectl get pvc,pv
 [root@cluster-50-master nfs-provisioning]# kubectl get pvc,pv
 NAME                         STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS          AGE
-persistentvolumeclaim/pvc1   Bound    pvc-774d202f-2fa1-4820-8ccb-8b5bf58fa926   500Mi      RWX            managed-nfs-storage   16s
+persistentvolumeclaim/pvc1   Bound    pvc-774d202f-2fa1-4820-8ccb-8b5bf58fa926   500Mi      RWX            managed-nfs-storage   43m
 
 NAME                                                        CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM          STORAGECLASS          REASON   AGE
-persistentvolume/pvc-774d202f-2fa1-4820-8ccb-8b5bf58fa926   500Mi      RWX            Delete           Bound    default/pvc1   managed-nfs-storage            16s
+persistentvolume/pvc-774d202f-2fa1-4820-8ccb-8b5bf58fa926   500Mi      RWX            Delete           Bound    default/pvc1   managed-nfs-storage            43m
 ```
+
 To delete the PV and PVC use “kubectl delete”
 
 ```
-[vagrant@kmaster nfs-provisioning]$ kubectl delete pvc --all
+[root@cluster-50-master nfs-provisioning]# kubectl delete pvc --all
 persistentvolumeclaim "pvc1" deleted
-PV and PVC resources are gone
 
 [root@cluster-50-master kubedata]# kubectl get pvc,pv
 No resources found in default namespace.
