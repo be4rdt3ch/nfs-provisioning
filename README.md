@@ -10,44 +10,44 @@
 ### Step 1) Installing the NFS Server
 In this particular example we’ll allocate a local filesystem from which PersistenceVolume Claims can be made. We’ll first create “/srv/nfs/kubedata“
 
-- `[root@cluster-50-master ~]$ sudo mkdir /srv/nfs/kubedata -p`
+- `[root@cluster-50-master ~]#  mkdir /srv/nfs/kubedata -p`
 
 Change the ownership to “nfsnobody”
 
-- `[root@cluster-50-master ~]$ sudo chown nfsnobody: /srv/nfs/kubedata/`
+- `[root@cluster-50-master ~]# chown nfsnobody: /srv/nfs/kubedata/`
 
 Next install the nfs-utils. This exanple is for centos 7
 
-- `[root@cluster-50-master ~]$ sudo yum install -y nfs-utils`
+- `[root@cluster-50-master ~]# yum install -y nfs-utils`
 
 Next, enable and start the userspace nfs server using systemctl.
 
-- `[root@cluster-50-master ~]$ sudo systemctl enable nfs-server`
+- `[root@cluster-50-master ~]# systemctl enable nfs-server`
 
 Created symlink from /etc/systemd/system/multi-user.target.wants/nfs-server.service to /usr/lib/systemd/system/nfs-server.service.
 
-- `[root@cluster-50-master ~]$ sudo systemctl start nfs-server`
+- `[root@cluster-50-master ~]# systemctl start nfs-server`
 
-- `[root@cluster-50-master ~]$ sudo systemctl status nfs-server`
+- `[root@cluster-50-master ~]# systemctl status nfs-server`
 
 ● nfs-server.service - NFS server and services
    Loaded: loaded (/usr/lib/systemd/system/nfs-server.service; enabled; vendor preset: disabled)
    Active: active (exited) since Wed 2020-08-26 16:25:06 UTC; 5s ago
    
 Next, we need to edit the exports file to add the file system we created to be exported to remote hosts.
- - `[root@cluster-50-master ~]$ sudo vi /etc/exports`
+ - `[root@cluster-50-master ~]# vi /etc/exports`
  
 /srv/nfs/kubedata    *(rw,sync,no_subtree_check,no_root_squash,no_all_squash,insecure)
 
 Next, run the exportfs command to make the local directory we configured available to remote hosts.
 
-- `[root@cluster-50-master ~]$ sudo exportfs -rav`
+- `[root@cluster-50-master ~]# exportfs -rav`
 
 exporting *:/srv/nfs/kubedata
 
 If you want to see more details about our export file system, you can run “exportfs -v”.
 
-- `[root@cluster-50-master ~]$ sudo exportfs -v`
+- `[root@cluster-50-master ~]# exportfs -v`
 
 /srv/nfs/kubedata
         <world>(sync,wdelay,hide,no_subtree_check,sec=sys,rw,insecure,no_root_squash,no_all_squash)
@@ -55,7 +55,7 @@ If you want to see more details about our export file system, you can run “exp
 Next, let’s test the nfs configurations. Log onto one of the worker nodes and mount the nfs filesystem and
 verify.
 
-- `[root@cluster-50-node-02 ~]# sudo mount -t nfs 192.168.50.20:/srv/nfs/kubedata /mnt`
+- `[root@cluster-50-node-02 ~]# mount -t nfs 192.168.50.20:/srv/nfs/kubedata /mnt`
 
 [root@cluster-50-node-02 ~]#  mount | grep kubedata
 192.168.50.20:/srv/nfs/kubedata on /mnt type nfs4 (rw,relatime,vers=4.1,rsize=1048576,wsize=1048576,namlen=255,hard,proto=tcp,timeo=600,retrans=2,sec=sys,clientaddr=192.168.50.16,local_lock=none,addr=192.168.50.20)
@@ -77,12 +77,12 @@ cd nfs-provisioning
 
 In this directory we have 4 files. (class.yaml default-sc.yaml deployment.yaml rbac.yaml) We will use the rbac.yaml file to create the service account for nfs and cluster role and bindings.
 
-- `[vagrant@kmaster nfs-provisioning]$ kubectl create -f rbac.yaml`
+- `[root@cluster-50-master ~]# kubectl create -f rbac.yaml`
 
 We can verify that the service account, clusterrole and binding was created.
 
 ```
-[vagrant@kmaster nfs-provisioning]$ kubectl get clusterrole,clusterrolebinding,role,rolebinding | grep nfs
+[root@cluster-50-master ~]# kubectl get clusterrole,clusterrolebinding,role,rolebinding | grep nfs
 clusterrole.rbac.authorization.k8s.io/nfs-client-provisioner-runner 20m
 clusterrolebinding.rbac.authorization.k8s.io/run-nfs-client-provisioner 20m
 role.rbac.authorization.k8s.io/leader-locking-nfs-client-provisioner 20m
@@ -107,10 +107,10 @@ archiveOnDelete: “false”
 Once we’ve updated the class.yaml file we can execute the file using kubectl create
 
 ```
-[root@cluster-50-master ~]$ kubectl create -f class.yaml
+[root@cluster-50-master ~]# kubectl create -f class.yaml
 storageclass.storage.k8s.io/managed-nfs-storage created
 Next, check that the storage class was created.
-[vagrant@kmaster nfs-provisioning]$ kubectl get storageclass
+[root@cluster-50-master ~]# kubectl get storageclass
 NAME                  PROVISIONER       AGE
 managed-nfs-storage   example.com/nfs   48s
 ```
@@ -146,20 +146,20 @@ spec:
             - name: PROVISIONER_NAME
               value: example.com/nfs
             - name: NFS_SERVER
-              value: 172.42.42.100
+              value: 192.168.50.20
             - name: NFS_PATH
               value: /srv/nfs/kubedata
       volumes:
         - name: nfs-client-root
           nfs:
-            server: 172.42.42.100
+            server: 192.168.50.20
             path: /srv/nfs/kubedata
 ```
 
 Once we’ve made the changes, save the file and apply the changes by running “kubectl create”.
 
 ```
-[vagrant@kmaster nfs-provisioning]$ kubectl create -f deployment.yaml
+[root@cluster-50-master ~]# kubectl create -f deployment.yaml
 deployment.apps/nfs-client-provisioner created
 ```
 
@@ -279,12 +279,12 @@ persistentvolumeclaim/pvc1 created
 We can now view the PVC and PV that was allocated. As we can see below a PCV was created “persistentvolumeclaim/pvc1” and its bound to a PV “pvc-eca295aa-bc2c-420c-b60e-9a6894fc9daf”. The PV was created automatically by the nfs-provisoner.
 
 ```
-[vagrant@kmaster nfs-provisioning]$ kubectl get pvc,pv
+[root@cluster-50-master ~]# kubectl get pvc,pv
 NAME                         STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS          AGE
 persistentvolumeclaim/pvc1   Bound    pvc-eca295aa-bc2c-420c-b60e-9a6894fc9daf   500Mi      RWX            managed-nfs-storage   2m30s
 NAME                                                        CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM          STORAGECLASS          REASON   AGE
 persistentvolume/pvc-eca295aa-bc2c-420c-b60e-9a6894fc9daf   500Mi      RWX            Delete           Bound    default/pvc1   managed-nfs-storage            2m30s
-[vagrant@kmaster nfs-provisioning]$
+[root@cluster-50-master ~]#
 ```
 
 ### Step 6) Creating a Pod to use Persistent Volume Claims
@@ -321,14 +321,14 @@ spec:
 We’ll execute test-pod-pvc1.yaml using “kubectl create”.
 
 ```
-[vagrant@kmaster nfs-provisioning]$ kubectl create -f 4-busybox-pv-nfs.yaml
+[root@cluster-50-master ~]# kubectl create -f 4-busybox-pv-nfs.yaml
 pod/busybox created
 ```
 
 We can now see that the pod is up and running.
 
 ```
-[root@cluster-50-master nfs-provisioning]# kubectl get pods
+[root@cluster-50-master]# kubectl get pods
 NAME                                      READY   STATUS    RESTARTS   AGE
 busybox                                   1/1     Running   0          8s
 nfs-client-provisioner-67dfcbfd99-wc9zb   1/1     Running   0          111m
@@ -337,13 +337,13 @@ nfs-client-provisioner-67dfcbfd99-wc9zb   1/1     Running   0          111m
 We can describe the pod to see more details.
 
 ```
-[vagrant@kmaster nfs-provisioning]$ kubectl describe pod busybox
+[root@cluster-50-master ~]# kubectl describe pod busybox
 Name:         busybox
 Namespace:    default
 Priority:     0
 Node:         kworker1.example.com/172.42.42.101
 Start Time:   Mon, 04 Nov 2019 03:44:30 +0000
-[root@cluster-50-master nfs-provisioning]# kubectl describe pod busybox
+[root@cluster-50-master]# kubectl describe pod busybox
 Name:         busybox
 Namespace:    default
 Priority:     0
@@ -407,7 +407,7 @@ Events:
 We can log into the container to view the mount point and create a file for testing
 
 ```
-[root@cluster-50-master nfs-provisioning]# kubectl exec -it busybox -- ./bin/sh
+[root@cluster-50-master]# kubectl exec -it busybox -- ./bin/sh
 / # ls /mydata/
 / # > /mydata/pf9file
 / # ls /mydata/
@@ -417,7 +417,7 @@ pf9file
 Now that we’ve create a file called myfile, we can log into the mastrer node and verify the file by looking in the PV directory that was allocated for this pod.
 
 ```
-[root@cluster-50-master nfs-provisioning]# ls /srv/nfs/kubedata/default-pvc1-pvc-774d202f-2fa1-4820-8ccb-8b5bf58fa926/
+[root@cluster-50-master]# ls /srv/nfs/kubedata/default-pvc1-pvc-774d202f-2fa1-4820-8ccb-8b5bf58fa926/
 pf9file
 ```
 
@@ -426,14 +426,14 @@ pf9file
 To delete the pod just use “kubectl delete pod [pod name]”
 
 ```
-[root@cluster-50-master nfs-provisioning]# kubectl delete pod busybox
+[root@cluster-50-master]# kubectl delete pod busybox
 pod "busybox" deleted
 ```
 
 Deleting the pod will delete the pod but not the PV and PVC. This will have to be done separately.
 
 ```
-[root@cluster-50-master nfs-provisioning]# kubectl get pvc,pv
+[root@cluster-50-master]# kubectl get pvc,pv
 NAME                         STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS          AGE
 persistentvolumeclaim/pvc1   Bound    pvc-774d202f-2fa1-4820-8ccb-8b5bf58fa926   500Mi      RWX            managed-nfs-storage   43m
 
@@ -444,7 +444,7 @@ persistentvolume/pvc-774d202f-2fa1-4820-8ccb-8b5bf58fa926   500Mi      RWX      
 To delete the PV and PVC use “kubectl delete”
 
 ```
-[root@cluster-50-master nfs-provisioning]# kubectl delete pvc --all
+[root@cluster-50-master]# kubectl delete pvc --all
 persistentvolumeclaim "pvc1" deleted
 
 [root@cluster-50-master kubedata]# kubectl get pvc,pv
